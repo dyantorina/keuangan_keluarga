@@ -12,6 +12,53 @@ st.set_page_config(
     layout="wide"
 )
 
+# Sistem Autentikasi Pengguna
+def cek_login():
+    if "sudah_login" not in st.session_state:
+        st.session_state.sudah_login = False
+        st.session_state.pengguna_aktif = ""
+
+    # Daftar akun terverifikasi (diambil dari Secrets jika ada, atau fallback lokal)
+    if "pengguna" in st.secrets:
+        daftar_akun = dict(st.secrets["pengguna"])
+    else:
+        # Kredensial cadangan untuk uji coba di laptop
+        daftar_akun = {
+            "rina": "rina123",
+            "yudi": "yudi123"
+        }
+
+    if not st.session_state.sudah_login:
+        st.markdown("<h2 style='text-align: center;'>🔒 Keuangan Rina & Yudi</h2>", unsafe_allow_html=True)
+        st.caption("<p style='text-align: center;'>Silakan masuk untuk mengakses buku kas keluarga</p>", unsafe_allow_html=True)
+        
+        _, col_login, _ = st.columns([1, 1.2, 1])
+        with col_login:
+            with st.form("form_login"):
+                username_input = st.text_input("Username").strip().lower()
+                password_input = st.text_input("Password", type="password")
+                tombol_masuk = st.form_submit_button("Masuk", use_container_width=True)
+
+                if tombol_masuk:
+                    if username_input in daftar_akun and daftar_akun[username_input] == password_input:
+                        st.session_state.sudah_login = True
+                        st.session_state.pengguna_aktif = username_input.capitalize()
+                        st.rerun()
+                    else:
+                        st.error("Username atau Password tidak sesuai!")
+        st.stop()
+
+# Jalankan pengecekan login di awal
+cek_login()
+
+# Sidebar: Info Pengguna & Tombol Keluar
+with st.sidebar:
+    st.write(f"👤 Masuk sebagai: **{st.session_state.pengguna_aktif}**")
+    if st.button("Keluar (Logout)", use_container_width=True):
+        st.session_state.sudah_login = False
+        st.session_state.pengguna_aktif = ""
+        st.rerun()
+
 SCOPE = [
     "https://spreadsheets.google.com/feeds",
     "https://www.googleapis.com/auth/drive"
@@ -19,12 +66,10 @@ SCOPE = [
 
 @st.cache_resource
 def buka_sheet():
-    # Jika berjalan di Streamlit Cloud, ambil kunci dari secrets
     if "gcp_service_account" in st.secrets:
         creds_info = json.loads(st.secrets["gcp_service_account"])
         creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_info, SCOPE)
     else:
-        # Jika berjalan di lokal laptop
         creds = ServiceAccountCredentials.from_json_keyfile_name("kunci.json", SCOPE)
         
     client = gspread.authorize(creds)
@@ -32,6 +77,7 @@ def buka_sheet():
     return spreadsheet.get_worksheet(0)
 
 sheet = buka_sheet()
+
 def muat_data():
     try:
         records = sheet.get_all_records()
@@ -178,7 +224,7 @@ if not df_kas.empty and "Tanggal_DT" in df_kas.columns and df_kas["Tanggal_DT"].
         m2.metric("Total Pengeluaran", f"Rp {total_keluar:,.2f}")
         m3.metric("Saldo Akhir Periode", f"Rp {saldo_akhir_periode:,.2f}")
 
-        # Tampilan Grafik
+        # Visualisasi
         st.markdown("---")
         st.subheader("📊 Analisis Visual Keuangan")
 
@@ -198,8 +244,8 @@ if not df_kas.empty and "Tanggal_DT" in df_kas.columns and df_kas["Tanggal_DT"].
                     hole=0.45,
                     color="Kategori",
                     color_discrete_map={
-                        "Pemasukan": "#00E676",    # Hijau neon terang
-                        "Pengeluaran": "#FF3366"   # Merah coral terang
+                        "Pemasukan": "#00E676",
+                        "Pengeluaran": "#FF3366"
                     }
                 )
                 fig_pie.update_traces(
@@ -208,7 +254,7 @@ if not df_kas.empty and "Tanggal_DT" in df_kas.columns and df_kas["Tanggal_DT"].
                     marker=dict(line=dict(color="#FFFFFF", width=2))
                 )
                 fig_pie.update_layout(showlegend=True, margin=dict(t=20, b=20, l=10, r=10))
-                st.plotly_chart(fig_pie, width="stretch")
+                st.plotly_chart(fig_pie, use_container_width=True)
             else:
                 st.info("Belum ada nominal transaksi untuk divisualisasikan.")
 
@@ -217,14 +263,14 @@ if not df_kas.empty and "Tanggal_DT" in df_kas.columns and df_kas["Tanggal_DT"].
             df_grafik = df_terfilter.groupby("Tanggal")[["Pemasukan", "Pengeluaran"]].sum()
             st.bar_chart(df_grafik)
 
-        # Tabel Riwayat Transaksi
+        # Tabel Riwayat
         st.markdown("---")
         st.subheader("📋 Rincian Transaksi")
         
         kolom_tampil = ["Nomor", "Tanggal", "Uraian", "Pemasukan", "Pengeluaran", "Saldo Akhir"]
         df_format = df_terfilter[kolom_tampil].copy()
         
-        # HTML Print Ready
+        # Format Cetak HTML
         html_tabel = df_format.to_html(index=False, classes='tabel-kas', border=1)
         html_print = f"""
         <html>
@@ -258,7 +304,7 @@ if not df_kas.empty and "Tanggal_DT" in df_kas.columns and df_kas["Tanggal_DT"].
         df_format["Pemasukan"] = df_format["Pemasukan"].apply(lambda x: f"Rp {x:,.2f}")
         df_format["Pengeluaran"] = df_format["Pengeluaran"].apply(lambda x: f"Rp {x:,.2f}")
         df_format["Saldo Akhir"] = df_format["Saldo Akhir"].apply(lambda x: f"Rp {x:,.2f}")
-        st.dataframe(df_format, width="stretch", hide_index=True)
+        st.dataframe(df_format, use_container_width=True, hide_index=True)
 
     else:
         st.info("Tidak ada transaksi pada periode yang dipilih.")
