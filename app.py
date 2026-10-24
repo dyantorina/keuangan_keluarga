@@ -5,6 +5,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import plotly.express as px
 import json
+from google import genai
 
 st.set_page_config(
     page_title="Keuangan Rina & Yudi", 
@@ -305,6 +306,47 @@ if not df_kas.empty and "Tanggal_DT" in df_kas.columns and df_kas["Tanggal_DT"].
         df_format["Pengeluaran"] = df_format["Pengeluaran"].apply(lambda x: f"Rp {x:,.2f}")
         df_format["Saldo Akhir"] = df_format["Saldo Akhir"].apply(lambda x: f"Rp {x:,.2f}")
         st.dataframe(df_format, use_container_width=True, hide_index=True)
+        # Tombol Analisis Otomatis AI
+        st.markdown("---")
+        st.subheader("💡 Analisis Penghematan Otomatis (AI)")
+        st.caption("Klik tombol di bawah untuk meminta saran cerdas pemangkasan pos boros berdasarkan riwayat 30 hari ini.")
+
+        if st.button("🤖 Jalankan Analisis Penghematan AI", type="primary"):
+            if "GEMINI_API_KEY" not in st.secrets:
+                st.error("Kunci API Gemini belum dimasukkan di menu Secrets!")
+            else:
+                with st.spinner("Sedang membaca data kas dan menyusun strategi penghematan..."):
+                    try:
+                        # Siapkan ringkasan data transaksi
+                        ringkasan_transaksi = df_format.to_string(index=False)
+                        
+                        prompt_analisis = f"""
+                        Kamu adalah perencana keuangan keluarga profesional untuk keluarga Rina & Yudi.
+                        Berikut adalah data transaksi kas 30 hari terakhir:
+                        
+                        {ringkasan_transaksi}
+                        
+                        Total Pemasukan: Rp {total_masuk:,.2f}
+                        Total Pengeluaran: Rp {total_keluar:,.2f}
+                        Saldo Akhir: Rp {saldo_akhir_periode:,.2f}
+                        
+                        Tolong berikan analisis singkat, ramah, dan solutif dengan format:
+                        1. Ringkasan Kondisi Kas (Kesehatan cashflow bulan ini)
+                        2. Identifikasi Kebocoran / Pengeluaran Terbesar (Apa saja pos yang paling menyedot saldo)
+                        3. Rekomendasi Penghematan Konkret (Langkah praktis memangkas biaya tanpa mengorbankan kebutuhan pokok)
+                        4. Target Alokasi Tabungan/Dana Darurat untuk bulan berikutnya.
+                        """
+                        
+                        client_ai = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
+                        response = client_ai.models.generate_content(
+                            model="gemini-2.5-flash",
+                            contents=prompt_analisis
+                        )
+                        
+                        st.success("Analisis selesai disusun!")
+                        st.markdown(response.text)
+                    except Exception as e:
+                        st.error(f"Terjadi kendala saat menghubungi AI: {e}")
 
     else:
         st.info("Tidak ada transaksi pada periode yang dipilih.")
