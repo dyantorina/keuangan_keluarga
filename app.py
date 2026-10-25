@@ -417,7 +417,7 @@ if not df_kas.empty and "Tanggal_DT" in df_kas.columns and df_kas["Tanggal_DT"].
                         
                         client_ai = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
                         response = client_ai.models.generate_content(
-                            model="gemini-2.0-flash",
+                            model="gemini-3.8-flash",
                             contents=prompt_analisis
                         )
                         
