@@ -9,36 +9,88 @@ from google import genai
 
 st.set_page_config(
     page_title="Keuangan Rina & Yudi", 
-    page_icon="💰", 
+    page_icon="💳", 
     layout="wide"
 )
 
-# Sistem Autentikasi Pengguna
+# Custom Styling (CSS)
+st.markdown("""
+<style>
+    /* Latar tombol dan aksen */
+    .stButton>button {
+        border-radius: 10px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    .stButton>button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    /* Kartu metrik kustom */
+    .metric-card {
+        background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 14px;
+        padding: 16px 20px;
+        box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+    }
+    .metric-title {
+        font-size: 0.85rem;
+        color: #9aa0a6;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 4px;
+    }
+    .metric-value-masuk {
+        font-size: 1.45rem;
+        font-weight: 700;
+        color: #00E676;
+    }
+    .metric-value-keluar {
+        font-size: 1.45rem;
+        font-weight: 700;
+        color: #FF5252;
+    }
+    .metric-value-saldo {
+        font-size: 1.55rem;
+        font-weight: 800;
+        color: #448AFF;
+    }
+    /* Badge pengguna di header */
+    .user-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 20px;
+        background-color: rgba(68, 138, 255, 0.15);
+        color: #82B1FF;
+        font-size: 0.85rem;
+        font-weight: 600;
+        border: 1px solid rgba(68, 138, 255, 0.3);
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Sistem Login
 def cek_login():
     if "sudah_login" not in st.session_state:
         st.session_state.sudah_login = False
         st.session_state.pengguna_aktif = ""
 
-    # Daftar akun terverifikasi (diambil dari Secrets jika ada, atau fallback lokal)
     if "pengguna" in st.secrets:
         daftar_akun = dict(st.secrets["pengguna"])
     else:
-        # Kredensial cadangan untuk uji coba di laptop
-        daftar_akun = {
-            "rina": "rina123",
-            "yudi": "yudi123"
-        }
+        daftar_akun = {"rina": "rina123", "yudi": "yudi123"}
 
     if not st.session_state.sudah_login:
-        st.markdown("<h2 style='text-align: center;'>🔒 Keuangan Rina & Yudi</h2>", unsafe_allow_html=True)
-        st.caption("<p style='text-align: center;'>Silakan masuk untuk mengakses buku kas keluarga</p>", unsafe_allow_html=True)
+        st.markdown("<br><h1 style='text-align: center;'>🔒 Keuangan Rina & Yudi</h1>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; color: #888;'>Silakan masuk dengan akun terdaftar</p>", unsafe_allow_html=True)
         
         _, col_login, _ = st.columns([1, 1.2, 1])
         with col_login:
             with st.form("form_login"):
                 username_input = st.text_input("Username").strip().lower()
                 password_input = st.text_input("Password", type="password")
-                tombol_masuk = st.form_submit_button("Masuk", use_container_width=True)
+                tombol_masuk = st.form_submit_button("Masuk ke Buku Kas", use_container_width=True)
 
                 if tombol_masuk:
                     if username_input in daftar_akun and daftar_akun[username_input] == password_input:
@@ -49,12 +101,13 @@ def cek_login():
                         st.error("Username atau Password tidak sesuai!")
         st.stop()
 
-# Jalankan pengecekan login di awal
 cek_login()
 
-# Sidebar: Info Pengguna & Tombol Keluar
+# Sidebar
 with st.sidebar:
-    st.write(f"👤 Masuk sebagai: **{st.session_state.pengguna_aktif}**")
+    st.markdown("### 👤 Akun Masuk")
+    st.markdown(f"<span class='user-badge'>{st.session_state.pengguna_aktif}</span>", unsafe_allow_html=True)
+    st.markdown("---")
     if st.button("Keluar (Logout)", use_container_width=True):
         st.session_state.sudah_login = False
         st.session_state.pengguna_aktif = ""
@@ -113,21 +166,28 @@ def perbarui_ulang_spreadsheet(df_baru):
     sheet.clear()
     sheet.update(range_name="A1", values=data_tulis)
 
-st.title("💰 Buku Kas Keuangan Rina & Yudi")
-st.caption("Tersimpan langsung di Google Drive Spreadsheet")
+# Header Utama
+col_head1, col_head2 = st.columns([3, 1])
+with col_head1:
+    st.title("💳 Dasbor Kas Rina & Yudi")
+    st.caption("Data tersinkronisasi otomatis dengan Google Spreadsheet")
+with col_head2:
+    st.markdown("<div style='text-align: right; padding-top: 15px;'>", unsafe_allow_html=True)
+    st.markdown(f"Status: **Aktif ({st.session_state.pengguna_aktif})**")
+    st.markdown("</div>", unsafe_allow_html=True)
 
-# Formulir Input Transaksi
-with st.expander("➕ Tambah Transaksi Baru", expanded=False):
+# Bagian Input Transaksi
+with st.expander("➕ Tambah Transaksi Kas", expanded=False):
     with st.form("form_kas", clear_on_submit=True):
         col1, col2 = st.columns(2)
         with col1:
-            tgl_input = st.date_input("Tanggal", value=date.today())
-            jenis = st.selectbox("Jenis Transaksi", ["Pemasukan", "Pengeluaran"])
+            tgl_input = st.date_input("Tanggal Transaksi", value=date.today())
+            jenis = st.selectbox("Arus Kas", ["Pemasukan", "Pengeluaran"])
         with col2:
-            keterangan = st.text_input("Uraian / Keterangan", placeholder="Contoh: Belanja bulanan, Gaji, dll.")
+            keterangan = st.text_input("Keterangan / Pos Belanja", placeholder="Contoh: Belanja dapur, internet, gaji")
             nominal = st.number_input("Nominal (Rp)", min_value=0.0, step=10000.0, format="%.2f")
 
-        simpan = st.form_submit_button("Simpan Transaksi")
+        simpan = st.form_submit_button("Simpan Data ke Kas", use_container_width=True)
 
         if simpan:
             if not keterangan.strip():
@@ -135,7 +195,7 @@ with st.expander("➕ Tambah Transaksi Baru", expanded=False):
             elif nominal <= 0:
                 st.error("Nominal transaksi harus lebih dari 0!")
             else:
-                with st.spinner("Menyimpan ke Google Drive..."):
+                with st.spinner("Mencatat data ke cloud..."):
                     df_sekarang = muat_data()
                     no_urut = len(df_sekarang) + 1
                     masuk = nominal if jenis == "Pemasukan" else 0.0
@@ -146,41 +206,37 @@ with st.expander("➕ Tambah Transaksi Baru", expanded=False):
                     
                     baris_baru = [int(no_urut), str(tgl_input), keterangan, masuk, keluar, saldo_baru]
                     sheet.append_row(baris_baru)
-                    st.success("Transaksi berhasil dicatat!")
+                    st.success("Transaksi tersimpan!")
                     st.rerun()
 
-# Formulir Hapus Transaksi
 df_kas = muat_data()
 
+# Hapus Transaksi
 if not df_kas.empty:
-    with st.expander("🗑️ Hapus Transaksi (Koreksi Kesalahan Input)", expanded=False):
-        st.write("Pilih transaksi yang ingin dihapus. Saldo dan nomor urut transaksi setelahnya akan dihitung ulang secara otomatis.")
-        
+    with st.expander("🗑️ Koreksi / Hapus Transaksi", expanded=False):
         pilihan_transaksi = {
             f"No. {row['Nomor']} | {row['Tanggal']} | {row['Uraian']} (Rp {row['Pemasukan'] if row['Pemasukan'] > 0 else row['Pengeluaran']:,.2f})": row['Nomor']
             for _, row in df_kas.iterrows()
         }
-        
-        pilihan_teks = st.selectbox("Pilih Transaksi:", list(pilihan_transaksi.keys()))
+        pilihan_teks = st.selectbox("Pilih item yang ingin dihapus:", list(pilihan_transaksi.keys()))
         nomor_target = pilihan_transaksi[pilihan_teks]
 
-        col_h1, col_h2 = st.columns([1, 4])
-        with col_h1:
-            tombol_hapus = st.button("Hapus Transaksi Ini", type="primary")
-
-        if tombol_hapus:
-            with st.spinner("Menghapus data dan menghitung ulang saldo..."):
+        if st.button("Hapus Item Terpilih", type="primary"):
+            with st.spinner("Memperbarui saldo..."):
                 df_sisa = df_kas[df_kas["Nomor"] != nomor_target].copy()
                 perbarui_ulang_spreadsheet(df_sisa)
-                st.success(f"Transaksi No. {nomor_target} berhasil dihapus!")
+                st.success(f"Item No. {nomor_target} berhasil dihapus!")
                 st.rerun()
 
-# Filter dan Visualisasi
+# Filter & Ringkasan Metrik Kartu Modern
 if not df_kas.empty and "Tanggal_DT" in df_kas.columns and df_kas["Tanggal_DT"].notnull().any():
     st.markdown("---")
-    st.subheader("🔍 Filter Data & Cetak Laporan")
-
-    mode_filter = st.radio("Pilih Mode Tampilan:", ["Bulanan", "Rentang Tanggal (Maks 30 Hari)"], horizontal=True)
+    
+    col_filter_header, col_mode = st.columns([1, 2])
+    with col_filter_header:
+        st.subheader("📊 Laporan & Filter")
+    with col_mode:
+        mode_filter = st.radio("Pilih Filter Tampilan:", ["Bulanan", "Rentang Tanggal (Maks 30 Hari)"], horizontal=True)
 
     df_terfilter = df_kas.copy()
 
@@ -194,9 +250,9 @@ if not df_kas.empty and "Tanggal_DT" in df_kas.columns and df_kas["Tanggal_DT"].
         c_tgl1, c_tgl2 = st.columns(2)
         hari_ini = date.today()
         with c_tgl1:
-            tgl_mulai = st.date_input("Tanggal Mulai", value=hari_ini - timedelta(days=7))
+            tgl_mulai = st.date_input("Mulai", value=hari_ini - timedelta(days=7))
         with c_tgl2:
-            tgl_akhir = st.date_input("Tanggal Akhir", value=hari_ini)
+            tgl_akhir = st.date_input("Sampai", value=hari_ini)
 
         selisih_hari = (tgl_akhir - tgl_mulai).days
 
@@ -220,19 +276,37 @@ if not df_kas.empty and "Tanggal_DT" in df_kas.columns and df_kas["Tanggal_DT"].
         total_keluar = df_terfilter["Pengeluaran"].sum()
         saldo_akhir_periode = df_terfilter["Saldo Akhir"].iloc[-1]
 
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Total Pemasukan", f"Rp {total_masuk:,.2f}")
-        m2.metric("Total Pengeluaran", f"Rp {total_keluar:,.2f}")
-        m3.metric("Saldo Akhir Periode", f"Rp {saldo_akhir_periode:,.2f}")
+        # Kartu Metrik Modern
+        k1, k2, k3 = st.columns(3)
+        with k1:
+            st.markdown(f"""
+            <div class='metric-card'>
+                <div class='metric-title'>Total Pemasukan</div>
+                <div class='metric-value-masuk'>Rp {total_masuk:,.2f}</div>
+            </div>
+            """, unsafe_allow_html=True)
+        with k2:
+            st.markdown(f"""
+            <div class='metric-card'>
+                <div class='metric-title'>Total Pengeluaran</div>
+                <div class='metric-value-keluar'>Rp {total_keluar:,.2f}</div>
+            </div>
+            """, unsafe_allow_html=True)
+        with k3:
+            st.markdown(f"""
+            <div class='metric-card'>
+                <div class='metric-title'>Saldo Periode Ini</div>
+                <div class='metric-value-saldo'>Rp {saldo_akhir_periode:,.2f}</div>
+            </div>
+            """, unsafe_allow_html=True)
 
-        # Visualisasi
-        st.markdown("---")
-        st.subheader("📊 Analisis Visual Keuangan")
+        st.markdown("<br>", unsafe_allow_html=True)
 
+        # Grafik Interaktif
         col_g1, col_g2 = st.columns(2)
 
         with col_g1:
-            st.markdown("**Komposisi Kas (Pemasukan vs Pengeluaran)**")
+            st.markdown("**Komposisi Kas Masuk vs Keluar**")
             if total_masuk > 0 or total_keluar > 0:
                 df_pie = pd.DataFrame({
                     "Kategori": ["Pemasukan", "Pengeluaran"],
@@ -242,51 +316,55 @@ if not df_kas.empty and "Tanggal_DT" in df_kas.columns and df_kas["Tanggal_DT"].
                     df_pie,
                     names="Kategori",
                     values="Nominal",
-                    hole=0.45,
+                    hole=0.55,
                     color="Kategori",
                     color_discrete_map={
                         "Pemasukan": "#00E676",
-                        "Pengeluaran": "#FF3366"
+                        "Pengeluaran": "#FF5252"
                     }
                 )
                 fig_pie.update_traces(
                     textposition="inside",
                     textinfo="percent+label",
-                    marker=dict(line=dict(color="#FFFFFF", width=2))
+                    marker=dict(line=dict(color="#1e1e1e", width=2))
                 )
-                fig_pie.update_layout(showlegend=True, margin=dict(t=20, b=20, l=10, r=10))
+                fig_pie.update_layout(
+                    showlegend=False, 
+                    margin=dict(t=20, b=20, l=10, r=10),
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)"
+                )
                 st.plotly_chart(fig_pie, use_container_width=True)
             else:
-                st.info("Belum ada nominal transaksi untuk divisualisasikan.")
+                st.info("Belum ada angka transaksi untuk divisualisasikan.")
 
         with col_g2:
             st.markdown("**Tren Transaksi Harian**")
             df_grafik = df_terfilter.groupby("Tanggal")[["Pemasukan", "Pengeluaran"]].sum()
-            st.bar_chart(df_grafik)
+            st.bar_chart(df_grafik, color=["#00E676", "#FF5252"])
 
         # Tabel Riwayat
         st.markdown("---")
-        st.subheader("📋 Rincian Transaksi")
+        st.subheader("📋 Rincian Transaksi Kas")
         
         kolom_tampil = ["Nomor", "Tanggal", "Uraian", "Pemasukan", "Pengeluaran", "Saldo Akhir"]
         df_format = df_terfilter[kolom_tampil].copy()
         
-        # Format Cetak HTML
         html_tabel = df_format.to_html(index=False, classes='tabel-kas', border=1)
         html_print = f"""
         <html>
         <head>
-            <title>Laporan Keuangan Rina & Yudi</title>
+            <title>Laporan Kas Keuangan</title>
             <style>
-                body {{ font-family: sans-serif; padding: 20px; }}
-                h2, h4 {{ margin: 5px 0; text-align: center; }}
+                body {{ font-family: sans-serif; padding: 24px; }}
+                h2, h4 {{ margin: 6px 0; text-align: center; }}
                 table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
-                th, td {{ border: 1px solid #333; padding: 8px; text-align: left; font-size: 12px; }}
-                th {{ background-color: #f2f2f2; }}
+                th, td {{ border: 1px solid #444; padding: 10px; text-align: left; font-size: 13px; }}
+                th {{ background-color: #f5f5f5; }}
             </style>
         </head>
         <body>
-            <h2>LAPORAN KAS KELUARGA RINA & YUDI</h2>
+            <h2>LAPORAN KAS RINA & YUDI</h2>
             <h4>{judul_periode}</h4>
             <p><strong>Total Pemasukan:</strong> Rp {total_masuk:,.2f} | <strong>Total Pengeluaran:</strong> Rp {total_keluar:,.2f} | <strong>Saldo:</strong> Rp {saldo_akhir_periode:,.2f}</p>
             {html_tabel}
@@ -296,7 +374,7 @@ if not df_kas.empty and "Tanggal_DT" in df_kas.columns and df_kas["Tanggal_DT"].
         """
         
         st.download_button(
-            label="🖨️ Siapkan Laporan Cetak",
+            label="🖨️ Cetak / Unduh Laporan",
             data=html_print,
             file_name=f"Laporan_Kas_{date.today()}.html",
             mime="text/html"
@@ -306,23 +384,23 @@ if not df_kas.empty and "Tanggal_DT" in df_kas.columns and df_kas["Tanggal_DT"].
         df_format["Pengeluaran"] = df_format["Pengeluaran"].apply(lambda x: f"Rp {x:,.2f}")
         df_format["Saldo Akhir"] = df_format["Saldo Akhir"].apply(lambda x: f"Rp {x:,.2f}")
         st.dataframe(df_format, use_container_width=True, hide_index=True)
-        # Tombol Analisis Otomatis AI
-        st.markdown("---")
-        st.subheader("💡 Analisis Penghematan Otomatis (AI)")
-        st.caption("Klik tombol di bawah untuk meminta saran cerdas pemangkasan pos boros berdasarkan riwayat 30 hari ini.")
 
-        if st.button("🤖 Jalankan Analisis Penghematan AI", type="primary"):
+        # Analisis Cerdas Gemini AI
+        st.markdown("---")
+        st.subheader("✨ Konsultan Kas Pintar (AI)")
+        st.caption("Menganalisis pola transaksi kas periode ini dan memberi solusi penghematan konkret.")
+
+        if st.button("🤖 Evaluasi Keuangan Sekarang", type="primary", use_container_width=True):
             if "GEMINI_API_KEY" not in st.secrets:
-                st.error("Kunci API Gemini belum dimasukkan di menu Secrets!")
+                st.error("Kunci API Gemini belum dipasang di Secrets!")
             else:
-                with st.spinner("Sedang membaca data kas dan menyusun strategi penghematan..."):
+                with st.spinner("AI sedang membaca data kas dan menyusun strategi cerdas..."):
                     try:
-                        # Siapkan ringkasan data transaksi
                         ringkasan_transaksi = df_format.to_string(index=False)
                         
                         prompt_analisis = f"""
-                        Kamu adalah perencana keuangan keluarga profesional untuk keluarga Rina & Yudi.
-                        Berikut adalah data transaksi kas 30 hari terakhir:
+                        Kamu adalah penasihat keuangan pribadi keluarga Rina & Yudi yang cerdas, praktis, dan ramah.
+                        Berikut data arus kas mereka:
                         
                         {ringkasan_transaksi}
                         
@@ -330,25 +408,25 @@ if not df_kas.empty and "Tanggal_DT" in df_kas.columns and df_kas["Tanggal_DT"].
                         Total Pengeluaran: Rp {total_keluar:,.2f}
                         Saldo Akhir: Rp {saldo_akhir_periode:,.2f}
                         
-                        Tolong berikan analisis singkat, ramah, dan solutif dengan format:
-                        1. Ringkasan Kondisi Kas (Kesehatan cashflow bulan ini)
-                        2. Identifikasi Kebocoran / Pengeluaran Terbesar (Apa saja pos yang paling menyedot saldo)
-                        3. Rekomendasi Penghematan Konkret (Langkah praktis memangkas biaya tanpa mengorbankan kebutuhan pokok)
-                        4. Target Alokasi Tabungan/Dana Darurat untuk bulan berikutnya.
+                        Berikan analisis ringkas dan terarah dengan poin berikut:
+                        1. 🩺 Diagnosis Kesehatan Kas (Sehat / Pas-pasan / Kritis beserta alasannya)
+                        2. 🚨 Pos Pengeluaran Paling Dominan & Kebocoran Halus
+                        3. 💡 Saran Penghematan Konkret yang Bisa Langsung Dilakukan
+                        4. 🎯 Rekomendasi Alokasi Tabungan/Investasi
                         """
                         
                         client_ai = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
                         response = client_ai.models.generate_content(
-                            model="gemini-3.8-flash",
+                            model="gemini-2.0-flash",
                             contents=prompt_analisis
                         )
                         
-                        st.success("Analisis selesai disusun!")
+                        st.success("Evaluasi kas selesai!")
                         st.markdown(response.text)
                     except Exception as e:
-                        st.error(f"Terjadi kendala saat menghubungi AI: {e}")
+                        st.error(f"Gagal memuat analisis: {e}")
 
     else:
-        st.info("Tidak ada transaksi pada periode yang dipilih.")
+        st.info("Tidak ada data transaksi pada rentang waktu yang dipilih.")
 else:
-    st.info("Belum ada data transaksi tersimpan di Google Sheet. Tambahkan transaksi pertama di atas.")
+    st.info("Data di Google Sheets masih kosong. Silakan catat transaksi perdana pada formulir di atas.")
